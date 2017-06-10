@@ -5,7 +5,7 @@ from matplotlib.finance import candlestick_ohlc
 from matplotlib import style
 
 import numpy as np
-import urllib2
+import urllib.request
 import datetime as dt
 
 style.use('fivethirtyeight')
@@ -265,7 +265,7 @@ def candlestick_graph(stock):
 	plt.ylabel('MAVGs')
 
 	stock_price_url = 'http://chartapi.finance.yahoo.com/instrument/1.0/'+stock+'/chartdata;type=quote;range=1y/csv'
-	source_code = urllib2.urlopen(stock_price_url).read().decode()
+	source_code = urllib.request.urlopen(stock_price_url).read().decode()
 	stock_data = []
 	split_source = source_code.split('\n')
 	for line in split_source:
