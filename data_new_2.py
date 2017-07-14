@@ -28,13 +28,17 @@ def save_sp500_tickers():
 
 def get_data_from_quandl(reload_sp500=False):
     
+    tickers = []
     if reload_sp500:
         tickers = save_sp500_tickers()
     else:
-        tickers = csv.open("sp500tickers.csv")
+        with open("sp500tickers.csv") as f:
+            tickers_csv = csv.reader(f)
+            for row in tickers_csv:
+                tickers.append(row[0])
         #with open("sp500tickers.pickle","rb") as f:
         #    tickers = pickle.load(f)
-    
+    print(tickers)
     if not os.path.exists('stock_dfs'):
         os.makedirs('stock_dfs')
 
@@ -44,6 +48,7 @@ def get_data_from_quandl(reload_sp500=False):
     for ticker in tickers:
         # just in case your connection breaks, we'd like to save our progress!
         if not os.path.exists('stock_dfs/{}.csv'.format(ticker)):
+            print(ticker)
             df = quandl.get("WIKI/"+ticker, start_date= start, end_date= end)
             df.to_csv('stock_dfs/{}.csv'.format(ticker))
         else:
@@ -51,8 +56,11 @@ def get_data_from_quandl(reload_sp500=False):
 
 
 def compile_data():
-    with open("sp500tickers.pickle","rb") as f:
-        tickers = pickle.load(f)
+    tickers = []
+    with open("sp500tickers.csv") as f:
+        tickers_csv = csv.reader(f)
+        for row in tickers_csv:
+            tickers.append(row[0])
 
     main_df = pd.DataFrame()
     
@@ -60,8 +68,8 @@ def compile_data():
         df = pd.read_csv('stock_dfs/{}.csv'.format(ticker))
         df.set_index('Date', inplace=True)
 
-        df.rename(columns={'Adj Close':ticker}, inplace=True)
-        df.drop(['Open','High','Low','Close','Volume'],1,inplace=True)
+        df.rename(columns={'Adj. Close':ticker}, inplace=True)
+        df.drop(['Open','High','Low','Close','Volume','Ex-Dividend','Split Ratio','Adj. Open','Adj. High','Adj. Low','Adj. Volume'],1,inplace=True)
 
         if main_df.empty:
             main_df = df
@@ -74,6 +82,6 @@ def compile_data():
     main_df.to_csv('sp500_joined_closes.csv')
 
 
-get_data_from_quandl(reload_sp500=False)
-save_sp500_tickers()
-compile_data()
+#get_data_from_quandl(reload_sp500=False)
+#save_sp500_tickers()
+#compile_data()
