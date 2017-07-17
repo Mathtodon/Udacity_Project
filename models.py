@@ -75,7 +75,7 @@ def SGD_model(X, y):
     cv_sets.split(X,y)
 
     # Create a decision tree regressor object
-    regressor = linear_model.SGDRegressor(n_iter=100)
+    regressor = linear_model.SGDRegressor(n_iter=200)
 
     # Create a dictionary for the parameter 'max_depth' with a range from 1 to 100
     params = {'loss':['squared_loss','huber'],'penalty':['none','l2','l1'],'alpha':[.0001,.001,.01,.1],'l1_ratio':[.15,.30,.5,.65]}
@@ -91,6 +91,25 @@ def SGD_model(X, y):
 
     # Return the optimal model after fitting the data
     return grid.best_estimator_
+
+def LASSO_model2(X,y):
+    cv_sets = TimeSeriesSplit(n_splits = 10)
+    cv_sets.split(X,y)
+      
+    regressor = Lasso()
+    params = {'alpha':[.3,.4,.5]}
+
+    grid = GridSearchCV(regressor, params, cv=cv_sets)
+
+    grid = grid.fit(X, y)
+
+    # Return the optimal model after fitting the data
+    return grid.best_estimator_
+
+def ENSEMBLE_model(X,y):
+    regressor = LinearRegression()
+    return regressor.fit(X,y)
+
 
 def LASSO_model(X,y):
     n = 3
@@ -113,7 +132,6 @@ def LASSO_model(X,y):
     lasso = Lasso(alpha=.3)
     lasso_model = lasso.fit(X_few, y)
     return lasso_model, names
-
     
 def SVR_model(X, y):
     # Create cross-validation sets from the training data
@@ -137,6 +155,15 @@ def SVR_model(X, y):
 
     # Return the optimal model after fitting the data
     return grid.best_estimator_
+
+def benchmark_model(X, y):
+    # Create a decision tree regressor object
+    regressor = linear_model.LinearRegression()
+
+    # Fit the benchmark model to the data 
+    benchmark = regressor.fit(X, y)
+
+    return benchmark
 
 def choose_components(X):
     components = range(1,10)
@@ -180,3 +207,37 @@ def pretty_print_linear(coefs, names = None, sort = False):
     if sort:
         lst = sorted(lst, key = lambda x:-np.abs(x[0]))
     return " + ".join("%s * %s" % (round(coef, 4), name) for coef, name in lst)
+
+def visualize_data():
+    ## code from https://pythonprogramming.net/stock-price-correlation-table-python-programming-for-finance/
+    ## after going through his videos for ideas, I found that this was a useful visualization
+    import matplotlib.pyplot as plt
+    df = pd.read_csv('sp500_joined_closes.csv')
+    #df['AAPL'].plot()
+    #plt.show()
+    df_corr = df.corr()
+    #print(df_corr.head())
+    df_corr.to_csv('sp500corr.csv')
+    
+    data1 = df_corr.values
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(111)
+
+    heatmap1 = ax1.pcolor(data1, cmap=plt.cm.RdYlGn)
+    fig1.colorbar(heatmap1)
+
+    ax1.set_xticks(np.arange(data1.shape[1]) + 0.5, minor=False)
+    ax1.set_yticks(np.arange(data1.shape[0]) + 0.5, minor=False)
+    ax1.invert_yaxis()
+    ax1.xaxis.tick_top()
+    column_labels = df_corr.columns
+    row_labels = df_corr.index
+    ax1.set_xticklabels(column_labels)
+    ax1.set_yticklabels(row_labels)
+    plt.xticks(rotation=90)
+    heatmap1.set_clim(-1,1)
+    plt.tight_layout()
+    #plt.savefig("correlations.png", dpi = (300))
+    plt.show()
+    
+#visualize_data()
