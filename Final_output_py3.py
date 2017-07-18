@@ -19,6 +19,7 @@ df = pd.read_csv('sp500_joined_closes.csv')
 tickers = df.columns.values.tolist()
 df.dropna(1, inplace = True)
 df['Day_N'] = df['Date'].index
+dates = pd.to_datetime(df['Date'].values)
 
 df.drop('Date',inplace=True,axis=1)
 
@@ -26,14 +27,16 @@ df.drop('Date',inplace=True,axis=1)
 ticker = 'MMM'
 start_date = '2000-01-01'
 end_date = '2016-12-30'
-days = 7
+days = 28
 
+print("Model will predict stock {} {} days into the future.".format(ticker,days))
 ticker_price = df[ticker].copy()
 
 df['30ma'] = ticker_price.rolling(window=30).mean()
 df['20ma'] = ticker_price.rolling(window=20).mean()
 df['10ma'] = ticker_price.rolling(window=10).mean()
 df = df[30:]
+dates = dates[30:]
 
 
 y = df[ticker]
@@ -41,7 +44,9 @@ X = df
 
 y_shifted = df[ticker].shift(-days)[:-days]
 X = df[:-days]
+X_dates = dates[:-days]
 X_for_future = df[-days:]
+future_dates = dates[-days:]
 
 test_size = int(len(X)*.15)
 
@@ -52,6 +57,9 @@ X_train = X[:-test_size]
 X_test = X[-test_size:]
 y_train = y_shifted[:-test_size]
 y_test = y_shifted[-test_size:]
+
+train_dates = X_dates[:-test_size]
+test_dates = X_dates[-test_size:]
 
 X_train_benchmark = X_train[ticker].values.reshape(-1,1)
 X_test_benchmark = X_test[ticker].values.reshape(-1,1)
@@ -83,7 +91,7 @@ print("Top Features Selected are", top_features)
 print("Training the Models")
 
 benchmark_model = models.benchmark_model(X_train_benchmark,y_train)
-benchmark_score = benchmark_model.score(X_test_benchmark,y_test)
+benchmark_score = np.round(benchmark_model.score(X_test_benchmark,y_test),5)
 benchmark_preds = benchmark_model.predict(X_test_benchmark.reshape(-1,1))
 benchmark_future_preds = benchmark_model.predict(X_for_future_benchmark)
 
@@ -108,11 +116,13 @@ sgd_train_preds = sgd.predict(X_train_top)
 sgd_preds = sgd.predict(X_test_top)
 #sgd2_preds = sgd2.predict(X_test_few)
 #sgd_w_pca_preds = sgd_w_pca.predict(X_test_pca)
-
+lasso_score = np.round(lasso.score(X_test_few,y_test),5)
+lasso2_score = np.round(lasso2.score(X_test_top,y_test),5)
+sgd_score = np.round(sgd.score(X_test_top,y_test),5)
 print("benchmark score = ", benchmark_score)
-print("lasso score =" , lasso.score(X_test_few,y_test))
-print("lasso2 score =" , lasso2.score(X_test_top,y_test))
-print("sgd score =" , sgd.score(X_test_top,y_test))
+print("lasso score =" , lasso_score)
+print("lasso2 score =" , lasso2_score)
+print("sgd score =" , sgd_score)
 #print("sgd2 score =" , sgd2.score(X_test_few,y_test))
 #print "sgd_wPCA score =" , sgd_w_pca.score(X_test_pca,y_test)
 
@@ -142,7 +152,7 @@ test_compare['SGD'] = sgd_preds
 #test_compare['Average'] = test_compare.mean(axis=1)
 
 ensemble_preds = ensemble_model.predict(test_compare)
-ensemble_score = ensemble_model.score(test_compare,y_test)
+ensemble_score = np.round(ensemble_model.score(test_compare,y_test),5)
 
 print("ensemble score =" , ensemble_score)
 
@@ -152,26 +162,47 @@ future_compare['Lasso_2'] = future_lasso2_preds
 future_compare['SGD'] = future_sgd_preds
 future_ensemble_preds = ensemble_model.predict(future_compare)
 
+preds = [future_lasso_preds,future_lasso2_preds,future_sgd_preds,future_ensemble_preds]
+up_down = 0
+for i in preds:
+	if np.max(i) > X_test[ticker].values[-1]:
+		up_down += 1
+	else: 
+		up_down += -1
+
+if up_down < 0:
+	in_dec = "decrease"
+elif up_down > 0:
+	in_dec = "increase"
+else:
+	in_dec = "stay the same"
+
 ##############################################################################
 #									PLOT
 ##############################################################################
 print("")
 print("Predicting the Future")
 
-txt = txt + "ensemble score =" , ensemble_score
+txt = txt + "\n"
+txt = txt + "\n Benchmark score = " + str(benchmark_score)
+txt = txt + "\n Lasso model 1 score = " + str(lasso_score)
+txt = txt + "\n Lasso model 2 score = " + str(lasso2_score)
+txt = txt + "\n SGD model score = " + str(sgd_score)
+txt = txt + "\n"
+txt = txt + "\n The model predicts that the stock price will {} in the next {} days".format(in_dec, days)
 
 train_plt = plt.subplot2grid((3,6), (0,0), rowspan =2 , colspan=4)
 test_plt = plt.subplot2grid((3,6), (0,4), rowspan =2, colspan=2, sharey = train_plt)
 future_plt = plt.subplot2grid((3,6), (2,0), rowspan =1, colspan=2)
-future_plt.text(days+1,(future_lasso_preds.max()-future_lasso_preds.min())/2 +future_lasso_preds.min(),txt)
+future_plt.text(days+3,(future_ensemble_preds.max()-future_ensemble_preds.min())/2 +future_ensemble_preds.min(),txt)
 
-train_plt.plot(y_train)
+train_plt.plot(train_dates,y_train)
 
-test_plt.plot(lasso_preds)
-test_plt.plot(lasso2_preds)
-test_plt.plot(sgd_preds)
-test_plt.plot(ensemble_preds)
-test_plt.plot(y_test.values)
+test_plt.plot(test_dates,lasso_preds)
+test_plt.plot(test_dates,lasso2_preds)
+test_plt.plot(test_dates,sgd_preds)
+test_plt.plot(test_dates,ensemble_preds)
+test_plt.plot(test_dates,y_test.values)
 
 future_plt.plot(range(1,days +1),future_lasso_preds)
 future_plt.plot(range(1,days +1),future_lasso2_preds)

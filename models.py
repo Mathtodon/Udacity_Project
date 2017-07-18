@@ -75,7 +75,7 @@ def SGD_model(X, y):
     cv_sets.split(X,y)
 
     # Create a decision tree regressor object
-    regressor = linear_model.SGDRegressor(n_iter=200)
+    regressor = linear_model.SGDRegressor(n_iter=500)
 
     # Create a dictionary for the parameter 'max_depth' with a range from 1 to 100
     params = {'loss':['squared_loss','huber'],'penalty':['none','l2','l1'],'alpha':[.0001,.001,.01,.1],'l1_ratio':[.15,.30,.5,.65]}
@@ -198,7 +198,7 @@ def feature_ranking(X,y):
     feature_ranks = sorted(zip(map(lambda x: round(x, 4), rfecv.ranking_), names))
     feature_ranks_df = pd.DataFrame(feature_ranks)
     top_features = list(feature_ranks_df[feature_ranks_df[0]==1][1])
-    return top_features
+    return top_features[:21]
 
 def pretty_print_linear(coefs, names = None, sort = False):
     if names == None:
