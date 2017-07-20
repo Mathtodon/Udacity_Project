@@ -2,10 +2,13 @@ import bs4 as bs
 import datetime as dt
 import os
 import pandas as pd
-from pandas_datareader import data, wb
-import pandas_datareader as pdr
+import pandas_datareader.data as web
 import pickle
 import requests
+import quandl
+import csv
+
+quandl.ApiConfig.api_key = 'Ri7BNHzdujUt3zYB7NQr'
 
 
 def save_sp500_tickers():
@@ -15,10 +18,6 @@ def save_sp500_tickers():
     tickers = []
     for row in table.findAll('tr')[1:]:
         ticker = row.findAll('td')[0].text
-        if ticker == 'BRK.B':
-            ticker = 'BRK-B'
-        if ticker == 'BF.B':
-            ticker = 'BF-B'
         tickers.append(ticker)
         
     with open("sp500tickers.pickle","wb") as f:
@@ -26,31 +25,63 @@ def save_sp500_tickers():
         
     return tickers
 
-save_sp500_tickers()
 
-
-def get_data_from_yahoo(reload_sp500=False):
+def get_data_from_quandl(reload_sp500=False):
     
+    tickers = []
     if reload_sp500:
         tickers = save_sp500_tickers()
     else:
-        with open("sp500tickers.pickle","rb") as f:
-            tickers = pickle.load(f)
-    #tickers = stocks
-
+        with open("sp500tickers.csv") as f:
+            tickers_csv = csv.reader(f)
+            for row in tickers_csv:
+                tickers.append(row[0])
+        #with open("sp500tickers.pickle","rb") as f:
+        #    tickers = pickle.load(f)
+    print(tickers)
     if not os.path.exists('stock_dfs'):
         os.makedirs('stock_dfs')
 
     start = dt.datetime(2000, 1, 1)
-    end = dt.datetime(2017, 3, 31)
+    end = dt.datetime(2016, 12, 31)
     
     for ticker in tickers:
         # just in case your connection breaks, we'd like to save our progress!
         if not os.path.exists('stock_dfs/{}.csv'.format(ticker)):
             print(ticker)
-            df = pdr.get_data_yahoo(symbols= ticker, start= start, end= end)
+            df = quandl.get("WIKI/"+ticker, start_date= start, end_date= end)
             df.to_csv('stock_dfs/{}.csv'.format(ticker))
         else:
             print('Already have {}'.format(ticker))
 
-get_data_from_yahoo()
+
+def compile_data():
+    tickers = []
+    with open("sp500tickers.csv") as f:
+        tickers_csv = csv.reader(f)
+        for row in tickers_csv:
+            tickers.append(row[0])
+
+    main_df = pd.DataFrame()
+    
+    for count,ticker in enumerate(tickers):
+        df = pd.read_csv('stock_dfs/{}.csv'.format(ticker))
+        df.set_index('Date', inplace=True)
+
+        df.rename(columns={'Adj. Close':ticker}, inplace=True)
+        df.drop(['Open','High','Low','Close','Volume','Ex-Dividend','Split Ratio','Adj. Open','Adj. High','Adj. Low','Adj. Volume'],1,inplace=True)
+
+        if main_df.empty:
+            main_df = df
+        else:
+            main_df = main_df.join(df, how='outer')
+
+        if count % 10 == 0:
+            print(count)
+    print(main_df.head())
+    main_df.to_csv('sp500_joined_closes.csv')
+
+
+#get_data_from_quandl(reload_sp500=False)
+#save_sp500_tickers()
+#compile_data()
