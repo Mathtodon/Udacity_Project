@@ -10,6 +10,9 @@ from sklearn.linear_model import Lasso
 from sklearn.preprocessing import StandardScaler
 from sklearn import linear_model
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.svm import SVR 
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neural_network import MLPRegressor
 import numpy as np 
 import pandas as pd
 
@@ -75,7 +78,7 @@ def SGD_model(X, y):
     cv_sets.split(X,y)
 
     # Create a decision tree regressor object
-    regressor = linear_model.SGDRegressor(n_iter=500)
+    regressor = linear_model.SGDRegressor(n_iter=600, random_state = 749)
 
     # Create a dictionary for the parameter 'max_depth' with a range from 1 to 100
     params = {'loss':['squared_loss','huber'],'penalty':['none','l2','l1'],'alpha':[.0001,.001,.01,.1],'l1_ratio':[.15,.30,.5,.65]}
@@ -110,6 +113,19 @@ def ENSEMBLE_model(X,y):
     regressor = LinearRegression()
     return regressor.fit(X,y)
 
+def ENSEMBLE_model_svr(X,y):
+    regressor = SVR(kernel = 'rbf')
+    return regressor.fit(X,y)
+
+def ENSEMBLE_model_knr(X,y):
+    regressor = KNeighborsRegressor(n_neighbors=3)
+    return regressor.fit(X,y)
+
+def ENSEMBLE_model_NN(X,y):
+    regressor = MLPRegressor(random_state = 749, max_iter = 500)
+    return regressor.fit(X,y)
+
+
 
 def LASSO_model(X,y):
     n = 3
@@ -141,11 +157,31 @@ def SVR_model(X, y):
     # Create a decision tree regressor object
     regressor = svm.SVR()
 
-    # Create a dictionary for the parameter 'max_depth' with a range from 1 to 100
-    params = {'kernel':['linear','poly'],
-              'degree':[2,3],
-              'C':[1.0,10.0],
-              'gamma':['auto']}
+    # Create a dictionary for the parameters
+    params = {'kernel':['rbf'],
+              'C':range(20,30),
+              'epsilon':[.2,.3,.4]}
+
+    # Create the grid search object
+    grid = GridSearchCV(regressor, params, cv=cv_sets)
+
+    # Fit the grid search object to the data to compute the optimal model
+    grid = grid.fit(X, y)
+
+    # Return the optimal model after fitting the data
+    return grid.best_estimator_
+
+def KNR_model(X, y):
+    # Create cross-validation sets from the training data
+    cv_sets = TimeSeriesSplit(n_splits = 10)
+    cv_sets.split(X,y)
+
+    # Create a regressor object
+    regressor = KNeighborsRegressor()
+
+    # Create a dictionary for the parameters
+    params = {'n_neighbors':range(1,5),
+              'weights':['uniform','distance']}
 
     # Create the grid search object
     grid = GridSearchCV(regressor, params, cv=cv_sets)
@@ -197,7 +233,7 @@ def feature_ranking(X,y):
      
     feature_ranks = sorted(zip(map(lambda x: round(x, 4), rfecv.ranking_), names))
     feature_ranks_df = pd.DataFrame(feature_ranks)
-    top_features = list(feature_ranks_df[feature_ranks_df[0]==1][1])
+    top_features = list(feature_ranks_df[1])
     return top_features[:21]
 
 def pretty_print_linear(coefs, names = None, sort = False):
